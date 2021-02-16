@@ -5,9 +5,13 @@
 
 #define true 1
 #define false 0
+
+uint64_t myatoi(char *number);
+
 int main(int argc, char *argv[])
 {	
-	uint_fast64_t NUMB = atoi(argv[1]);
+	if(argc == 1) {printf("\aUsage: %s <integer>\n", argv[0]); exit(42);}
+	uint_fast64_t NUMB = myatoi(argv[1]);
 	uint8_t *range = (uint8_t *)malloc(sizeof(uint8_t)*(NUMB + 1));
 	uint_fast64_t numb_primes = 0;
 	memset(range, true, NUMB+1);
