@@ -1,0 +1,6 @@
+ungetc() is the exact opposite to getc()...aka it puts
+a char back into the input stream. Remebere, getc() gets a char from
+input steam
+What is a stream?
+A stream specifies the pointer to a FILE struct
+that identifies an input stream.

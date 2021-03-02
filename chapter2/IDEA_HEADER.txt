@@ -1,1 +1,3 @@
 IDEA: Make a python program that will scrape a C file and find out all the functions that it has, and make new header(.h) file, ready to be put in another file!
+
+Turns out this is kind of hard ahahah 
