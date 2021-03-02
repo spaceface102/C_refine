@@ -188,21 +188,21 @@ int main(int argc, char *argv[])
 	if (brack.track)
 	{
 		error(brack.start_linenum, "Missing ]", brack.start_line);
-		if(strlen((char *)brack.end_line) || isspace((char *)brack.end_line)) 
+		if(strlen((char *)brack.end_line) && !(isspace(brack.end_line[0]))) 
 			error(brack.end_linenum, "Last ]", brack.end_line);
 	}
 
 	if (braces.track)
 	{
 		error(braces.start_linenum, "Missing }", braces.start_line);
-		if(strlen((char *)braces.end_line) || isspace((char *)braces.end_line)) 
+		if(strlen((char *)braces.end_line) && !(isspace(braces.end_line[0]))) 
 			error(braces.end_linenum, "Last }", braces.end_line);
 	}
 
 	if (paren.track)
 	{
 		error(paren.start_linenum, "Missing )", paren.start_line);
-		if(strlen((char *)paren.end_line) || isspace((char *)paren.end_line)) 
+		if(strlen((char *)paren.end_line) && !(isspace(paren.end_line[0])))
 			error(paren.end_linenum, "Last )", paren.end_line);
 	}
 	return 0;
