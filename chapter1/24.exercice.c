@@ -13,12 +13,25 @@
 typedef struct multi_line{
 	/*need signed bit since for track since closing 
 	char subtract: if too many closing 'track' should be negative */
-	int64_t track;
+	int64_t track; //related to arithmetic of opening and closing chars
 	uint64_t start_linenum;
 	uint64_t end_linenum;
 	uint8_t start_line[SIZE+1];
 	uint8_t end_line[SIZE+1];
 } multline;
+
+typedef struct escape_chars{
+	uint8_t check_escape;
+	uint8_t repeat_timer;
+	uint8_t octal_check;
+	uint8_t hex_check;
+} escape_chars;
+
+typedef struct comment{
+	uint8_t comment;
+	uint8_t check_comment;
+	uint64_t num_char;
+} comment;
 
 //Func Declerations
 char *getline(uint8_t currline[]);
@@ -35,18 +48,22 @@ void set_multline_chars(multline *character, uint8_t currline[], uint64_t linenu
 
 int main(int argc, char *argv[])
 {	//SIZE+1 to make sure that '\0' fits
-	uint8_t squote, len_squote, dquote, comment, check_escape,
-	repeat_timer, octal_check, hex_check,
-	currline[SIZE+1]; 
+	uint64_t linenum = 1, i;
+	uint8_t squote, len_squote, dquote, currline[SIZE]; 
 
-	uint64_t linenum = 1, i, check_comment[2] = {0, 0};
 	/*check_comment[0] == activate check for '/', check_comment[1] == 
 	char_num (need to make sure * is right after /) */
 	
 	multline brack, braces, paren;
-	brack.track = 0; brack.start_linenum = 0, brack.end_linenum = 0;
-	braces.track = 0; braces.start_linenum = 0, braces.end_linenum = 0;
-	paren.track = 0; paren.start_linenum = 0, paren.end_linenum = 0;
+	/*old way to do it brack.track = 0; brack.start_linenum = 0, brack.end_linenum = 0;*/
+	/*memset(&braces, 0, (void *)(braces.start_line) - (void *)&(braces.track));
+	just a cool way to set zeros between track & start_line, BUT, it is not safe
+	It is confusing, and with padding, there can be unintential affects. The reason
+	it works is because track is pushed to the stack at a earlier memory address and
+	the elements below it follow it in order.*/
+	memset(&brack, 0, sizeof(multline));
+	memset(&braces, 0, sizeof(multline));
+	memset(&paren, 0, sizeof(multline));
 
 	squote =
 	len_squote = dquote = comment = 

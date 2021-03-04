@@ -1,0 +1,7 @@
+Create a file for each function in C with significant size
+and then using make, create an object file for it.
+
+Using the -j option(or --job) will run creating those object
+files in paralle, and therefore the more you segmatize the tasks
+(up to a certain point of course) the faster you can compile the
+full program!

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+//ensure string1 has no chars from string2
 char *squeeze(char s1[], char s2[]) 
 //delete char in s1 if in s2
 {
