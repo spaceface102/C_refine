@@ -1,0 +1,6 @@
+Keep the function exactly the same, the only difference being that instead of passing
+by value or even a pointer, if the ammount of arguments add up to more than 8 bytes,
+make a struct that contains all the information that needs to be passed, and then pass
+that struct as a pointer. In this way you will have to copy only the address of the struct
+so it will ussually be faster and will also usually use more space. Downside? Readability
+But it is not significant. If there are enough args, it might not be a bad idea.

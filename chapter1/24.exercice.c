@@ -3,13 +3,16 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
-#define SIZE 1000
+#define SIZE 1000 //max number of chars per line
+/*return values for escape_sequence_check()*/
 #define ALLGOOD 1
 #define HEX	   -1
 #define OCTAL  -2
 #define BAD    -3
 
+/*STRUCTS*/
 typedef struct multi_line{
 	/*need signed bit since for track since closing 
 	char subtract: if too many closing 'track' should be negative */
@@ -28,32 +31,46 @@ typedef struct escape_chars{
 } escape_chars;
 
 typedef struct comment{
-	uint8_t comment;
-	uint8_t check_comment;
-	uint64_t num_char;
+	uint8_t comment; //for c89 style comments '*/'
+	uint8_t check_comment; //activate check
+	uint64_t num_char; //make sure right character rigth after
 } comment;
 
-//Func Declerations
-char *getline(uint8_t currline[]);
+typedef struct quote{
+	char type; //' or "
+	uint64_t len; //numb of chars inside of quotes
+	uint8_t track; //tracks number of ' or ", when 2 done
+} quote;
+
+typedef struct essential{
+	uint8_t currline[SIZE];
+	uint64_t linenum;
+	uint8_t curr_char;
+	uint64_t i; //in currline, can be thought about as curr_char num
+} essential //often passed to other functions
+/*EOF STRUCTS*/
+
+
+/*Func Declerations */
 int check_octal(char escape_char);
+void init_multline(int num_structs, ...);
 char escape_sequence_check(char escape_char);
 int binsearch(const char array[], int find, int n);
+char *getline(uint8_t currline[], uint64_t n, FILE *fh);
+void error_multline(multline *ml_chr, char specified_char);
 void error(uint64_t linenum, char *message, uint8_t currline[]);
-//SINGLE FUNC
-void init_escape(uint8_t curr_char, uint8_t currline[], uint64_t linenum, 
-uint8_t *repeat_timer, uint8_t *check_escape, uint8_t *hex_check, uint8_t *octal_check);
-//EOF SINGLE FUNC DECLERATION
-void set_multline_chars(multline *character, uint8_t currline[], uint64_t linenum, int8_t modifier);
+void quote_check(quote *qchar, escape_chars *esc, essential *info);  
+void set_multline_chars(multline *character, essential *info, int8_t modifier);
+/*EOF Func Declerations*/
 
 
 int main(int argc, char *argv[])
-{	//SIZE+1 to make sure that '\0' fits
-	uint64_t linenum = 1, i;
-	uint8_t squote, len_squote, dquote, currline[SIZE]; 
-
-	/*check_comment[0] == activate check for '/', check_comment[1] == 
-	char_num (need to make sure * is right after /) */
-	
+{	
+	essential info = {.linenum = 1, .i = 0}
+	quote squote = {.type = '\'', .len = 0, .track = 0};
+	quote dquote = {.type = '\"', .len = 0, .track = 0};
+	comment comnt = {.comment = 0, .check_comment = 0, .num_char = 0}; 
+	escape_chars esc = {.check_escape = 0, repeat_timer = 0, .octal_check = 0, .hex_check = 0};
 	multline brack, braces, paren;
 	/*old way to do it brack.track = 0; brack.start_linenum = 0, brack.end_linenum = 0;*/
 	/*memset(&braces, 0, (void *)(braces.start_line) - (void *)&(braces.track));
@@ -61,180 +78,177 @@ int main(int argc, char *argv[])
 	It is confusing, and with padding, there can be unintential affects. The reason
 	it works is because track is pushed to the stack at a earlier memory address and
 	the elements below it follow it in order.*/
-	memset(&brack, 0, sizeof(multline));
-	memset(&braces, 0, sizeof(multline));
-	memset(&paren, 0, sizeof(multline));
+	init_multline(3, &brack, &braces, &paren); //curious of variadic functions, just think its cool
 
-	squote =
-	len_squote = dquote = comment = 
-	check_escape = repeat_timer = 
-	octal_check = hex_check = 0x0;
-	
-	FILE *fh;
-	char *(*choose_func)() = (argc >= 2) ? fgets : getline;
-
-	if (argc >= 2)
-		if ((fh = fopen(argv[1], "r")) == NULL)
-		{
+	FILE *fh = NULL;
+	if (argc >= 2 && ((fh = fopen(argv[1], "r")) == NULL))
+	{
 			printf("\"%s\" does not exist!\nBye!\n", argv[1]);
 			exit(42); //error, can't read file
-		}
+	}
+	char *(*choose_func)() = (agrc > 2) ? fgets : getline;
 
 	do{
-		if(choose_func(currline, SIZE+1, fh) == NULL)
+		if(choose_func(info.currline, SIZE, fh) == NULL)
 			break;
 
-		for(i = 0; currline[i] != '\0'; i++) //i == current char num 
+		for(info.i = 0; info.currline[info.i] != '\0'; info.i++) //info.i == current char num 
 		{
-			if(comment)
+			info.curr_char = info.currline[info.i];
+			if(comnt.comment)
 			{
-				if(currline[i] == '*')
+				if(info.curr_char == '*')
 				{
-					check_comment[0] = 1;
-					check_comment[1] = i;
+					comnt.check_comment = 1;
+					comnt.num_char = i + 1; //check next char
 					continue;
 				}
-				if(check_comment[0])
+				if(comnt.check_comment && comnt.num_char == i) 
 				{
-					if((check_comment[1] + 1 == i) && (currline[i] == '/'))
-						comment = 0;
+					if (info.curr_char == '/')
+						comnt.comment = 0;
 					else
-						check_comment[0] = 0;
+						comnt.check_comment = 0;
 				}
 				continue;
 			}
-			else if(check_comment[0])
+			else if(comnt.check_comment && comnt.num_char == i) 
 			{
-				if((check_comment[1] + 1 == i) && (currline[i] == '*'))
+				if(info.curr_char == '*')
 				{
-					comment = 1;
+					comnt.comment = 1;
 					continue;
 				}
 				//C99 Comments
-				else if((check_comment[1] + 1 == i) && (currline[i] == '/'))
+				else if(info.curr_char == '/')
 				{
-					check_comment[0] = 0;
-					break; //don't need to set comment == 1, need to move to the next line
+					comnt.check_comment = 0;
+					break; //get the next line break out of for loop
 				}
 				else
-					check_comment[0] = 0;
+					comnt.check_comment = 0;
 			}
 
-			if(!(dquote==1 || squote==1) && currline[i] != '\'' && currline[i] != '\"') //have started quote
+			//check if have started quote
+			if(!(dquote.track==1 || squote.track==1) &&
+			info.curr_char != '\'' && info.curr_char != '\"') 
 			{
-				switch(currline[i])
+				switch(info.curr_char)
 				{
 					case '[':
-						set_multline_chars(&brack, currline, linenum, 1);
+						set_multline_chars(&brack, &info, 1);
 						break;
 					case ']':
-						set_multline_chars(&brack, currline, linenum, -1);
+						set_multline_chars(&brack, &info, -1);
 						break;
 					case '(':
-						set_multline_chars(&paren, currline, linenum, 1);
+						set_multline_chars(&paren, &info, 1);
 						break;
 					case ')':
-						set_multline_chars(&paren, currline, linenum, -1);
+						set_multline_chars(&paren, &info, -1);
 						break;
 					case '{':
-						set_multline_chars(&braces, currline, linenum, 1);
+						set_multline_chars(&braces, &info, 1);
 						break;
 					case '}':
-						set_multline_chars(&braces, currline, linenum, -1);
+						set_multline_chars(&braces, &info, -1);
 						break;
 					case '/':
-						check_comment[0] = 1; //indicate to check for comment
-						check_comment[1] = i; //char num of '/', looking for next char '*'
+						comnt.check_comment = 1;
+						comnt.num_char = i + 1; //check value of next char
 						break;
 				}
 			}
-			else if(currline[i] == '\"' || dquote == 1)
+			/* WILL REMOVE THIS SOON 
+			else if(info.curr_char == '\'' || squote == 1)
 			{
-				if (currline[i] == '\"' && i > 0 && currline[i-1] != '\\')
-					dquote += 1;
-				else if (currline[i] == '\"' && i == 0)
-					dquote += 1;
-				else if (currline[i] == '\"' && i >= 2 && currline[i-1] == '\\' && currline[i-2] == '\\')
-					dquote += 1;
 
-				//does the handeling of escape sequence checking	
-				init_escape(currline[i], currline, linenum, 
-				&repeat_timer, &check_escape, &hex_check, &octal_check);
-			}
-			else if(currline[i] == '\'' || squote == 1)
-			{
-				if(currline[i] != '\'' && !repeat_timer && !check_escape)
-					//still not done with '' need to make sure only one char
-					len_squote += 1;
-
-				if (currline[i] == '\'' && i > 0 && currline[i-1] != '\\')
+				if (info.curr_char == '\'' && i > 0 && currline[i-1] != '\\')
 					squote += 1;
-				else if (currline[i] == '\'' && i == 0)
+				else if (info.curr_char == '\'' && i == 0)
 					squote += 1;
-				else if (currline[i] == '\'' && i >= 2 && currline[i-1] == '\\' && currline[i-2] == '\\')
+				else if (info.curr_char == '\'' && i >= 2 && currline[i-1] == '\\' && currline[i-2] == '\\')
 					squote += 1;
 
 				//does the handeling of escape sequence checking	
-				init_escape(currline[i], currline, linenum, 
+				init_escape(info.curr_char, currline, linenum, 
 				&repeat_timer, &check_escape, &hex_check, &octal_check);
 			}
+			*/
 
-			if(squote == 2)
+			if(squote.track == 2)
 			{
-				if (len_squote > 1)
-					error(linenum, "Too many chars in \' \'", currline);
-				else if(len_squote == 0)
-					error(linenum, "NO char between \' \'", currline);
-				len_squote = 0;
-				squote = 0;
+				if (squote.len > 1)
+					error(info.linenum, "Too many chars in \' \'", info.currline);
+				else if(squote.len == 0)
+					error(info.linenum, "NO char between \' \'", info.currline);
+				squote = {.len = 0, .track = 0};
 			}
-			if(dquote == 2)
-				dquote = 0;
+			if(dquote.track == 2)
+				dquote = {.len = 0, .track = 0};
+			//EOF char i
 		}
 
-		if (dquote == 1)
-			error(linenum, "Missing \"", currline);
+		//EOF Line linenum
+		if (dquote.track == 1)
+		{
+			error(info.linenum, "Missing \"", info.currline);
+			dquote = {.len = 0, .track = 0};
+		}
+		
+		if (squote.track == 1)
+		{
+			error(info.linenum, "Missing \'", info.currline);
+			squote = {.len = 0, .track = 0};
+		}
 
-		if (squote == 1)
-			error(linenum, "Missing \'", currline);
+		info.linenum++;
+	} while(info.i > 0); 
 
-		linenum++;
-		dquote = squote = len_squote = 0;
-	} while(i > 0);
-
-	if (brack.track)
-	{
-		error(brack.start_linenum, "Missing ]", brack.start_line);
-		if(strlen((char *)brack.end_line) && !(isspace(brack.end_line[0]))) 
-			error(brack.end_linenum, "Last ]", brack.end_line);
-	}
-
-	if (braces.track)
-	{
-		error(braces.start_linenum, "Missing }", braces.start_line);
-		if(strlen((char *)braces.end_line) && !(isspace(braces.end_line[0]))) 
-			error(braces.end_linenum, "Last }", braces.end_line);
-	}
-
-	if (paren.track)
-	{
-		error(paren.start_linenum, "Missing )", paren.start_line);
-		if(strlen((char *)paren.end_line) && !(isspace(paren.end_line[0])))
-			error(paren.end_linenum, "Last )", paren.end_line);
-	}
+	//EOF File
+	error_multline(3, &brack, &braces, &paren);
 	return 0;
 }
 
-
-char *getline(uint8_t currline[])
+void error_multline(multline *ml_chr, char specified_char) //specified char should be closing char
 {
-	/*In reality you should doing file IO here, but this is what I think KR
-	expect out of you prev. to getting to file IO chapeter*/
+	char last[7] = {'L', 'a', 's', 't', ' '};
+	char missing[10] = {'M', 'i', 's', 's', 'i', 'n', 'g', ' '};
+	//hacky way to get specific char for each different struct
+	missing[8] = last[5] = specified_char; missing[9] = last[6] = '\0';
+
+	if (ml_chr->track) //should be == 0 if for every opening char there is a closing char
+	{
+		error(ml_chr->start_linenum, missing, ml_char->start_line);
+		if( strlen((char *)ml_char->end_line) && ml_char->end_line[0] != '\n' ) 
+			error(ml_char->end_linenum, last, ml_char->end_line);
+	}
+}
+
+
+void init_multline(int num_structs, ...)
+{
+	va_list args;
+	va_start(args, num_structs);
+	for(int i = 0; i < num_structs; i++)
+	{
+		multline *temp = va_arg(args, multline *);
+		temp->track = 0;
+		temp->start_linenum = 0;
+		temp->end_linenum = 0;
+	}
+	va_end(args);
+}
+
+
+char *getline(uint8_t currline[], uint64_t n, FILE *fh)
+{
 	int i; uint8_t c;
-	for(i = 0; i < SIZE && (c = getchar()) != '\n';i++)
+	for(i = 0; i < n - 1 && (c = getchar()) != '\n';i++)
 		currline[i] = c;
-	currline[i] = '\0'; //currline is SIZE+1: look at main()
-	return "done";
+	currline[i] = '\0'; //this is why we do < n - 1
+	if (!i) //no data in currline, end of program
+		return NULL;
 }
 
 
@@ -278,68 +292,88 @@ char escape_sequence_check(char escape_char)
 }
 
 
-void init_escape(uint8_t curr_char, uint8_t currline[], uint64_t linenum,
-uint8_t *repeat_timer, uint8_t *check_escape, uint8_t *hex_check,
-uint8_t *octal_check)
+void quote_check(uint8_t currline[], uint8_t i, quote *qchar, uint64_t linenum, escape_chars *esc)  
 {
-	if (*repeat_timer)
+	if (info.curr_char == qchar->type)
 	{
-		*repeat_timer -= 1;
-		if (curr_char == '\'' || curr_char == '\"')
+		//handle '\'' or '\"'
+		if (i > 0 && currline[i-1] != '\\')
+			qchar->track += 1;
+		//handle when first char is " or ' in line
+		else if (i == 0)
+			qchar->track += 1;
+		//handle '\\'
+		else if (i >= 2 && currline[i-1] == '\\' && currline[i-2] == '\\')
+			qchar->track += 1;
+	}
+	else //therefore != qchar->type
+	{
+		//really only useful for '' aka single quotes
+		if(!repeat_timer && !check_escape)
+			//still not done with '' need to make sure only one char
+			qchar->len += 1;
+	}
+
+	//does the handeling of escape sequence checking	
+	if (esc->repeat_timer)
+	{
+		esc->repeat_timer -= 1;
+		if (info.curr_char == qchar->type)
 		{
-			if(*hex_check && *repeat_timer == 1) 
+			if(esc->hex_check && esc->repeat_timer == 1) 
 				/*==1 since og value ==2 and after -=1 == 1
 				& if here curr_char == ' or " therefore then end*/
 				error(linenum, "No hex number present!", currline);
-			*hex_check = *octal_check = *repeat_timer = 0;
+			esc->hex_check = esc->octal_check = 
+			esc->repeat_timer = 0;
 		}
-		if(*hex_check)
+		if(esc->hex_check)
 		{
-			if(!isxdigit(curr_char))
+			if(!isxdigit(info.curr_char))
 			{
 				error(linenum, "Hex Not a valid char number", currline);
-				*repeat_timer = 0;
-				*hex_check = 0;
+				esc->repeat_timer = 0;
+				esc->hex_check = 0;
 			}
 		}
-		if(*octal_check)
+		if(esc->octal_check)
 		{
-			if(!check_octal(curr_char))
+			if(!check_octal(info.curr_char))
 			{
 				error(linenum, "Octal Not a valid char number", currline);
-				*repeat_timer = 0;
-				*octal_check = 0;
+				esc->repeat_timer = 0;
+				esc->octal_check = 0;
 			}
 		}
 	}
 
 	//allow '\\' for cases like '\n'
-	if(*check_escape)
+	if(esc->check_escape)
 	{
-		switch (escape_sequence_check(curr_char))
+		switch (escape_sequence_check(info.curr_char))
 		{	
 			case ALLGOOD:
 				break;
 			case HEX: 
-				*hex_check = 1;
-				*repeat_timer = 2;
+				esc->hex_check = 1;
+				esc->repeat_timer = 2;
 				break;
 			case OCTAL:
-				*octal_check = 1;
+				esc->octal_check = 1;
 				/*even though max three numbers, since what denotes if it will be
 				an octal is the '\n' number n; n itself is part of the number, unlike
 				with hex where the first char == 'x' and is therefore not part of the 
 				number.*/
-				*repeat_timer = 2;
+				esc->repeat_timer = 2;
 				break;
 			case BAD:
 				error(linenum, "Not a valid escape char", currline);
 				break;
 		}
-		*check_escape = 0;
+		esc->check_escape = 0;
 	}
-	else if (curr_char == '\\')
-		*check_escape = 1;
+	else if (info.curr_char == '\\')
+		esc->check_escape = 1;
 }
 
 
