@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 
 void rand_array(uint32_t array[], uint32_t max, uint32_t n);
 int main(void)
