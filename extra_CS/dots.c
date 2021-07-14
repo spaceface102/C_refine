@@ -40,7 +40,7 @@ void dots(int num_dots, double sleep_time)
 	}
 	/*return the cursor to start, fill in spaces with 'blanks' aka spaces
 	then once more return cursor to start, and finally ensure displaying with fflush
-	I do it like this since \b is non distructive on my terminal, and more or
+	I do it like this since \b is non destructive on my terminal, and more or
 	less just shifts the cursor back to the left*/
 	repeat('\b', num_dots);
 	repeat(' ', num_dots);
