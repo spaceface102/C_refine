@@ -21,13 +21,16 @@ int main(int argc, char* argv[])
         printf("Huston, we have a problem!\n");
         return 1;
     }
+    
     for (countNewLines = countBlanks = countTabs = 0; (c = getc(file)) != EOF;
          countNewLines += (c == '\n'), countBlanks += (c == ' '),
          countTabs += (c == '\t'))
         ;
-    printf("Number of line in %s: %ld\n", argv[1], countNewLines);
-    printf("Number of spaces in %s: %ld\n", argv[1], countBlanks);
-    printf("Number of tabs in %s: %ld\n", argv[1], countTabs);
+
+    printf("%s summary:\n", argv[1]);
+    printf("Number of lines:\t%ld\n", countNewLines);
+    printf("Number of spaces:\t%ld\n", countBlanks);
+    printf("Number of tabs:\t\t%ld\n", countTabs);
 
     return 0;
 }
